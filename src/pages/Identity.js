@@ -22,13 +22,30 @@ export default function Identity() {
 
     const identityFactory = new ethers.Contract(identityFactoryAddress, identityFactoryAbi, signer.current);
 
-    const events = await identityFactory.queryFilter('IdentityDeployed', 0);
-    const identityDeployedEvent = events.find(event => event.args[1] === walletAddress);
-    const identityAddress = identityDeployedEvent ? identityDeployedEvent.args[0] : null;
+    let events = await identityFactory.queryFilter('IdentityDeployed', 0);
+    const identityDeployedEvents = events.filter(event => event.args[1] === walletAddress);
+    let identityAddress = identityDeployedEvents.length > 0 ? identityDeployedEvents.map(event => event.args[0])[0] : null;
 
     if (!identityAddress) {
-      alert('No identity contract deployed');
-      return;
+      events = await identityFactory.queryFilter('AdditionalOwnerAction', 0);
+
+      const eventsForWalletAddress = events.filter(event => event.args[2] === walletAddress);
+      const addingEvents = eventsForWalletAddress.filter(event => event.args[3] === "added");
+      const removingEvents = eventsForWalletAddress.filter(event => event.args[3] === "removed");
+
+      const identityAddresses = addingEvents.map(event => event.args[0]);
+
+      removingEvents.map(event => event.args[0]).forEach(ele => {
+        const index = identityAddresses.findIndex(eleToFind => eleToFind === ele);
+        if (index >= 0) identityAddresses.splice(index, 1);
+      });
+
+      if (identityAddresses.length === 0) {
+        alert('No identity contract deployed');
+        return;
+      }
+
+      identityAddress = identityAddresses[0];
     }
 
     identity.current = new ethers.Contract(identityAddress, identityAbi, signer.current);

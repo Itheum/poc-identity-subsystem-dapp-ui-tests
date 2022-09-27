@@ -33,14 +33,14 @@ export default function IdentityFactory() {
       removingEvents.map(event => event.args[0]).forEach(ele => {
         const index = identityAddresses.findIndex(eleToFind => eleToFind === ele);
         if (index >= 0) identityAddresses.splice(index, 1);
-      })
+      });
     }
 
     setIdentityAddressesState(identityAddresses);
   }
 
   async function deployIdentity() {
-    if (!identityAddressesState) {
+    if (identityAddressesState.length === 0) {
       try {
         const deployIdentityTx = await identityFactory.current.connect(signer.current).deployIdentity();
 

@@ -1,4 +1,4 @@
-export const identityFactoryAddress = '0xd95772bc067bfaef9a43847a02aed2a375f10270';
+export const identityFactoryAddress = '0x6129e5fa65ae6a927fa108f8013076a725f5991b';
 export const nfmeAddress = '0xf137246930346677c8c3125cdb10948078533f96';
 
 export const identityFactoryAbi = [
