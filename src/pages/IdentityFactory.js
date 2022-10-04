@@ -1,52 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { ethers } from "ethers";
-import { identityFactoryAbi, identityFactoryAddress } from "../constants";
+import { IdentityFactory as SDKIdentityFactory } from 'itheum-identity-sdk';
+import { identityFactoryAddress } from "../constants";
 
 export default function IdentityFactory() {
-  let signer = useRef();
   let identityFactory = useRef();
 
   const [identityAddressesState, setIdentityAddressesState] = useState([]);
 
   async function init() {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
+    identityFactory.current = await SDKIdentityFactory.init(identityFactoryAddress);
+    // const identities = await identityFactory.current.getIdentities();
+    const identities = await identityFactory.current.getIdentitiesByTheGraph();
 
-    signer.current = provider.getSigner();
-    const walletAddress = await signer.current.getAddress();
-
-    identityFactory.current = new ethers.Contract(identityFactoryAddress, identityFactoryAbi, signer.current);
-
-    let events = await identityFactory.current.queryFilter('IdentityDeployed', 0);
-    const identityDeployedEvents = events.filter(event => event.args[1] === walletAddress);
-    let identityAddresses = identityDeployedEvents.length > 0 ? identityDeployedEvents.map(event => event.args[0]) : [];
-
-    if (identityAddresses.length === 0) {
-      events = await identityFactory.current.queryFilter('AdditionalOwnerAction', 0);
-
-      const eventsForWalletAddress = events.filter(event => event.args[2] === walletAddress);
-      const addingEvents = eventsForWalletAddress.filter(event => event.args[3] === "added");
-      const removingEvents = eventsForWalletAddress.filter(event => event.args[3] === "removed");
-
-      identityAddresses = addingEvents.map(event => event.args[0]);
-
-      removingEvents.map(event => event.args[0]).forEach(ele => {
-        const index = identityAddresses.findIndex(eleToFind => eleToFind === ele);
-        if (index >= 0) identityAddresses.splice(index, 1);
-      });
-    }
-
-    setIdentityAddressesState(identityAddresses);
+    setIdentityAddressesState(identities.map(identity => identity.address));
   }
 
   async function deployIdentity() {
     if (identityAddressesState.length === 0) {
       try {
-        const deployIdentityTx = await identityFactory.current.connect(signer.current).deployIdentity();
+        await identityFactory.current.deployIdentity();
 
-        await deployIdentityTx.wait();
-
-        window.location.reload();
       } catch (e) {
         alert(e.reason);
       }

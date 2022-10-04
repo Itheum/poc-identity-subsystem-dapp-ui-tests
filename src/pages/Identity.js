@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ethers } from "ethers";
-import { identityAbi, identityFactoryAbi, identityFactoryAddress } from "../constants";
+import { IdentityFactory as SDKIdentityFactory } from "itheum-identity-sdk";
+import { identityFactoryAddress } from "../constants";
 
 export default function Identity() {
-  let signer = useRef();
   let identity = useRef();
 
   const [identityOwnerState, setIdentityOwnerState] = useState([]);
@@ -14,80 +13,25 @@ export default function Identity() {
   const [removingOwnerState, setRemovingOwnerState] = useState("");
 
   async function init() {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
+    const identityFactory = await SDKIdentityFactory.init(identityFactoryAddress);
+    const identities = await identityFactory.getIdentities();
 
-    signer.current = provider.getSigner();
-    const walletAddress = await signer.current.getAddress();
-
-    const identityFactory = new ethers.Contract(identityFactoryAddress, identityFactoryAbi, signer.current);
-
-    let events = await identityFactory.queryFilter('IdentityDeployed', 0);
-    const identityDeployedEvents = events.filter(event => event.args[1] === walletAddress);
-    let identityAddress = identityDeployedEvents.length > 0 ? identityDeployedEvents.map(event => event.args[0])[0] : null;
-
-    if (!identityAddress) {
-      events = await identityFactory.queryFilter('AdditionalOwnerAction', 0);
-
-      const eventsForWalletAddress = events.filter(event => event.args[2] === walletAddress);
-      const addingEvents = eventsForWalletAddress.filter(event => event.args[3] === "added");
-      const removingEvents = eventsForWalletAddress.filter(event => event.args[3] === "removed");
-
-      const identityAddresses = addingEvents.map(event => event.args[0]);
-
-      removingEvents.map(event => event.args[0]).forEach(ele => {
-        const index = identityAddresses.findIndex(eleToFind => eleToFind === ele);
-        if (index >= 0) identityAddresses.splice(index, 1);
-      });
-
-      if (identityAddresses.length === 0) {
-        alert('No identity contract deployed');
-        return;
-      }
-
-      identityAddress = identityAddresses[0];
+    if (identities.length === 0) {
+      alert('No identity deployed');
+      return;
     }
 
-    identity.current = new ethers.Contract(identityAddress, identityAbi, signer.current);
+    identity.current = identities[0];
 
-    const owners = [await identity.current.owner()];
-
-    const additionalOwnerAddedEvents = await identity.current.queryFilter('AdditionalOwnerAdded', 0);
-    const additionalOwnerRemovedEvents = await identity.current.queryFilter('AdditionalOwnerRemoved', 0);
-
-    owners.push(...additionalOwnerAddedEvents.map(ele => ele.args[1]));
-
-    additionalOwnerRemovedEvents
-      .map(ele => ele.args[1])
-      .forEach(ele => {
-        const index = owners.findIndex(eleToFind => eleToFind === ele);
-        if (index >= 0) owners.splice(index, 1);
-    });
+    const owners = await identity.current.getOwners();
 
     setIdentityOwnerState(owners);
 
-    const confirmations = [];
-
-    for (const owner of owners) {
-      const count = await identity.current.removeAdditionalOwnerConfirmationCount(owner);
-      confirmations.push(count);
-    }
+    const confirmations = await identity.current.getOwnerRemovalConfirmations();
 
     setConfirmationState(confirmations);
 
-    const claims = [];
-
-    const claimAddedEvents = await identity.current.queryFilter('ClaimAdded', 0);
-    const claimRemovedEvents = await identity.current.queryFilter('ClaimRemoved', 0);
-
-    claims.push(...claimAddedEvents.map(ele => ele.args[0]));
-
-    claimRemovedEvents
-      .map(ele => ele.args[0])
-      .forEach(ele => {
-        const index = claims.findIndex(eleToFind => eleToFind === ele);
-        if (index >= 0) claims.splice(index, 1);
-      });
+    const claims = await identity.current.getClaims();
 
     setClaimsState(claims);
   }
@@ -106,9 +50,7 @@ export default function Identity() {
 
   async function addOwner() {
     try {
-      const addOwnerTx = await identity.current.connect(signer.current).addAdditionalOwner(addingOwnerState);
-
-      await addOwnerTx.wait();
+      await identity.current.addAdditionalOwner(addingOwnerState);
 
       window.location.reload();
     } catch (e) {
@@ -118,9 +60,7 @@ export default function Identity() {
 
   async function proposeOwnerRemoval() {
     try {
-      const proposeOwnerRemovalOwnerTx = await identity.current.connect(signer.current).proposeAdditionalOwnerRemoval(removeOwnerProposalState);
-
-      await proposeOwnerRemovalOwnerTx.wait();
+      await identity.current.proposeAdditionalOwnerRemoval(removeOwnerProposalState);
 
       window.location.reload();
     } catch (e) {
@@ -130,9 +70,7 @@ export default function Identity() {
 
   async function removeOwner() {
     try {
-      const removeOwnerTx = await identity.current.connect(signer.current).removeAdditionalOwner(removingOwnerState);
-
-      await removeOwnerTx.wait();
+      await identity.current.removeAdditionalOwner(removingOwnerState);
 
       window.location.reload();
     } catch (e) {

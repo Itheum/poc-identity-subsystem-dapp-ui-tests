@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ethers } from "ethers";
-import { identityAbi, identityFactoryAbi, identityFactoryAddress, nfmeAbi, nfmeAddress } from "../constants";
+import { IdentityFactory as SDKIdentityFactory } from "itheum-identity-sdk";
+import { identityFactoryAddress, nfmeAbi, nfmeAddress } from "../constants";
 
 export default function Nfme() {
   let signer = useRef();
@@ -16,55 +17,35 @@ export default function Nfme() {
     await provider.send("eth_requestAccounts", []);
 
     signer.current = provider.getSigner();
-    const walletAddress = await signer.current.getAddress();
 
-    const identityFactory = new ethers.Contract(identityFactoryAddress, identityFactoryAbi, signer.current);
+    const identityFactory = await SDKIdentityFactory.init(identityFactoryAddress);
+    const identities = await identityFactory.getIdentities();
 
-    let events = await identityFactory.queryFilter('IdentityDeployed', 0);
-    const identityDeployedEvents = events.filter(event => event.args[1] === walletAddress);
-    let identityAddress = identityDeployedEvents.length > 0 ? identityDeployedEvents.map(event => event.args[0])[0] : null;
-
-    if (!identityAddress) {
-      events = await identityFactory.queryFilter('AdditionalOwnerAction', 0);
-
-      const eventsForWalletAddress = events.filter(event => event.args[2] === walletAddress);
-      const addingEvents = eventsForWalletAddress.filter(event => event.args[3] === "added");
-      const removingEvents = eventsForWalletAddress.filter(event => event.args[3] === "removed");
-
-      const identityAddresses = addingEvents.map(event => event.args[0]);
-
-      removingEvents.map(event => event.args[0]).forEach(ele => {
-        const index = identityAddresses.findIndex(eleToFind => eleToFind === ele);
-        if (index >= 0) identityAddresses.splice(index, 1);
-      });
-
-      if (identityAddresses.length === 0) {
-        alert('No identity contract deployed');
-        return;
-      }
-
-      identityAddress = identityAddresses[0];
+    if (identities.length === 0) {
+      alert('No identity deployed');
+      return;
     }
 
-    const identityBalance = await provider.getBalance(identityAddress);
+    identity.current = identities[0];
+
+    const identityBalance = await provider.getBalance(identity.current.address);
+
     setIdentityBalanceState(identityBalance);
 
     const nfme = new ethers.Contract(nfmeAddress, nfmeAbi, signer.current);
-    const alreadyMinted = (await nfme.connect(signer.current).balanceOf(identityAddress)) > 0;
+    const alreadyMinted = (await nfme.connect(signer.current).balanceOf(identity.current.address)) > 0;
 
     setAlreadyMintedState(alreadyMinted);
 
-    identity.current = new ethers.Contract(identityAddress, identityAbi, signer.current);
-
-    const { identifier } = await identity.current.connect(signer.current).claims("nfme_mint_allowed");
-    const claimAvailable = identifier === "nfme_mint_allowed";
+    const claims = await identity.current.getClaims();
+    const claimAvailable = claims.includes("nfme_mint_allowed");
 
     setClaimAvailableState(claimAvailable);
 
     const claim = {
       identifier: "nfme_mint_allowed",
       from: "0xa838c28201aBb6613022eC02B97fcF6828B0862B",
-      to: identityAddress,
+      to: identity.current.address,
       data: ethers.utils.formatBytes32String(""),
       validFrom: 0,
       validTo: 0,
@@ -81,10 +62,7 @@ export default function Nfme() {
     // if non-existent, create one, let it be signed and add it
     if (!alreadyMintedState && claimAvailableState && identityBalanceState >= 0.01) {
       try {
-        const mintFunctionSignatureHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("safeMint()")).substring(0, 10);
-        const mintTx = await identity.current.connect(signer.current).execute(0, nfmeAddress, ethers.utils.parseEther("0.01"), mintFunctionSignatureHash, { gasLimit: 1_000_000 });
-
-        await mintTx.wait();
+        await identity.current.execute("safeMint()", nfmeAddress, "0.01", 3_000_000);
 
         window.location.reload();
       } catch (e) {
