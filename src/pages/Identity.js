@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { IdentityFactory as SDKIdentityFactory } from "itheum-identity-sdk";
+import { IdentityFactory as SDKIdentityFactory } from "poc-itheum-identity-sdk";
 import { identityFactoryAddress } from "../constants";
 
 export default function Identity() {
@@ -50,7 +50,7 @@ export default function Identity() {
 
   async function addOwner() {
     try {
-      await identity.current.addAdditionalOwner(addingOwnerState);
+      await identity.current.addOwner(addingOwnerState);
 
       window.location.reload();
     } catch (e) {
@@ -60,7 +60,7 @@ export default function Identity() {
 
   async function proposeOwnerRemoval() {
     try {
-      await identity.current.proposeAdditionalOwnerRemoval(removeOwnerProposalState);
+      await identity.current.proposeOwnerRemoval(removeOwnerProposalState);
 
       window.location.reload();
     } catch (e) {
@@ -70,7 +70,7 @@ export default function Identity() {
 
   async function removeOwner() {
     try {
-      await identity.current.removeAdditionalOwner(removingOwnerState);
+      await identity.current.removeOwner(removingOwnerState);
 
       window.location.reload();
     } catch (e) {
