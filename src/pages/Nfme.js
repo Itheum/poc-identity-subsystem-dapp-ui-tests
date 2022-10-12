@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ethers } from "ethers";
-import { IdentityFactory as SDKIdentityFactory } from "poc-itheum-identity-sdk";
+import { IdentityFactory as SDKIdentityFactory } from "itheum-identity-sdk";
 import { identityFactoryAddress, nfmeAbi, nfmeAddress } from "../constants";
 
 export default function Nfme() {

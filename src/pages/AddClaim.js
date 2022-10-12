@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { IdentityFactory as SDKIdentityFactory } from "poc-itheum-identity-sdk";
+import { IdentityFactory as SDKIdentityFactory } from "itheum-identity-sdk";
 import { identityFactoryAddress } from "../constants";
 
 export default function AddClaim() {
