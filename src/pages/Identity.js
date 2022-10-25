@@ -34,6 +34,8 @@ export default function Identity() {
     const claims = await identity.current.getClaims();
 
     setClaimsState(claims);
+
+    console.log(await identity.current.getClaimByIdentifier(claims[0]));
   }
 
   function handleAddingOwnerInput(event) {
