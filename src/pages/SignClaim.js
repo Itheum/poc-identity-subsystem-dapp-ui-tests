@@ -9,7 +9,6 @@ export default function SignClaim() {
 
   async function init() {
     const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
 
     signer.current = provider.getSigner();
   }
